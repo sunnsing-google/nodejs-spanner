@@ -106,6 +106,10 @@
           "timeout_millis": 30000,
           "retry_codes_name": "unavailable",
           "retry_params_name": "9442ca297df43f7314712e1a19d003838e738a45"
+        },
+        "BatchWrite": {
+          "retry_codes_name": "non_idempotent",
+          "retry_params_name": "default"
         }
       }
     }

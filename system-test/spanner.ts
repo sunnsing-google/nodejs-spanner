@@ -158,28 +158,27 @@ describe('Spanner', () => {
          PRIMARY KEY (SingerId)
        );`,
       ];
-      const [postgreSqlOperationUpdateDDL] = await pg_database.updateSchema(
-        schema
-      );
+      const [postgreSqlOperationUpdateDDL] =
+        await pg_database.updateSchema(schema);
       await postgreSqlOperationUpdateDDL.promise();
       RESOURCES_TO_CLEAN.push(PG_DATABASE);
 
       // Create a user-managed instance config from a base instance config.
-      const [baseInstanceConfig] = await spanner.getInstanceConfig(
-        INSTANCE_CONFIG.config
-      );
-      const customInstanceConfigRequest = {
-        replicas: baseInstanceConfig.replicas!.concat(
-          baseInstanceConfig!.optionalReplicas![0]
-        ),
-        baseConfig: baseInstanceConfig.name,
-        gaxOptions: GAX_OPTIONS,
-      };
-      const [, operation] = await instanceConfig.create(
-        customInstanceConfigRequest
-      );
-      await operation.promise();
-      INSTANCE_CONFIGS_TO_CLEAN.push(instanceConfig);
+      // const [baseInstanceConfig] = await spanner.getInstanceConfig(
+      //   INSTANCE_CONFIG.config
+      // );
+      // const customInstanceConfigRequest = {
+      //   replicas: baseInstanceConfig.replicas!.concat(
+      //     baseInstanceConfig!.optionalReplicas![0]
+      //   ),
+      //   baseConfig: baseInstanceConfig.name,
+      //   gaxOptions: GAX_OPTIONS,
+      // };
+      // const [, operation] = await instanceConfig.create(
+      //   customInstanceConfigRequest
+      // );
+      // await operation.promise();
+      // INSTANCE_CONFIGS_TO_CLEAN.push(instanceConfig);
     }
   });
 
@@ -2617,9 +2616,8 @@ describe('Spanner', () => {
         );
         await operation.promise();
 
-        const [operationUpdateDDL] = await database.updateSchema(
-          database_schema
-        );
+        const [operationUpdateDDL] =
+          await database.updateSchema(database_schema);
         await operationUpdateDDL.promise();
 
         const [schema] = await database.getSchema();
