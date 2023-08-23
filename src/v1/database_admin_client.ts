@@ -472,7 +472,7 @@ export class DatabaseAdminClient {
    * @returns {string} The DNS address for this service.
    */
   static get servicePath() {
-    return 'spanner.googleapis.com';
+    return 'staging-wrenchworks.sandbox.googleapis.com';
   }
 
   /**
@@ -481,7 +481,7 @@ export class DatabaseAdminClient {
    * @returns {string} The DNS address for this service.
    */
   static get apiEndpoint() {
-    return 'spanner.googleapis.com';
+    return 'staging-wrenchworks.sandbox.googleapis.com';
   }
 
   /**
