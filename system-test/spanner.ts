@@ -4294,6 +4294,21 @@ describe('Spanner', () => {
         };
         queryStreamMode(done, DATABASE, query, GOOGLE_SQL_EXPECTED_ROW);
       });
+      // Dummy batch write test
+      it('BATCH_WRITE_TEST', done => {
+        DATABASE.batchWrite([], {}, (err, stream) => {
+          if (err) {
+            assert.fail(err);
+          }
+          stream?.on('data', (data) => {
+            console.log('received data:', data);
+          }).on('end', () => {
+            done();
+          }).on('error', (error) => {
+            assert.fail(error);
+          });
+        });
+      });
 
       it('POSTGRESQL should query in stream mode', function (done) {
         if (IS_EMULATOR_ENABLED) {
