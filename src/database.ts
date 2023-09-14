@@ -2908,6 +2908,47 @@ class Database extends common.GrpcServiceObject {
     });
   }
 
+  // streaming version
+  batchWriteStream(
+    mutationGroups: google.spanner.v1.BatchWriteRequest.IMutationGroup[],
+    options: BatchWriteOptions,
+  ): Duplex {
+
+    const proxyStream: Transform = through.obj();
+
+    this.pool_.getSession((err, session) => {
+      if (err) {
+        proxyStream.destroy(err);
+        return;
+      }
+      const gaxOpts = extend(true, {}, options.gaxOptions);
+      var request = Object.assign({} as spannerClient.spanner.v1.BatchWriteRequest);
+      const reqOpts: spannerClient.spanner.v1.BatchWriteRequest = Object.assign(
+        request,
+        {
+          session: session?.formattedName_!,
+          mutationGroups: this._getCannedMutationGroups(),
+          requestOptions: options.requestOptions
+        }
+      );
+      let dataStream = this.requestStream({
+        client: 'SpannerClient',
+        method: 'batchWrite',
+        reqOpts,
+        gaxOpts,
+        headers: this.resourceHeader_,
+      });
+      dataStream
+        .once('error', err => {
+            proxyStream.destroy(err);
+          }
+        )
+        .pipe(proxyStream);
+    });
+
+    return proxyStream as Duplex;
+  }
+
   /**
    * @typedef {object} RunTransactionOptions
    * @property {number} [timeout] The maximum amount of time (in ms) that a

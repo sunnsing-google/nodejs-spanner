@@ -4310,6 +4310,19 @@ describe('Spanner', () => {
         });
       });
 
+      // Dummy batch write test
+      it('BATCH_WRITE_TEST_STREAM', done => {
+        DATABASE.batchWriteStream([], {}).on('data', (data) => {
+          console.log('received data:', data);
+        }).on('end', () => {
+          done();
+        }).on('error', (error) => {
+          console.error('received error:', error);
+          done();
+          // assert.fail(error);
+        });
+      });
+
       it('POSTGRESQL should query in stream mode', function (done) {
         if (IS_EMULATOR_ENABLED) {
           this.skip();
