@@ -2015,14 +2015,25 @@ export class Transaction extends Dml {
    * ```
    */
   deleteRows(table: string, keys: Key[]): void {
+    this._queuedMutations.push(
+      Transaction.getDeleteMutation(table, keys) as spannerClient.spanner.v1.Mutation);
+  }
+
+  /**
+   * Builds a delete mutation.
+   * @private
+   * @param table The name of the table.
+   * @param keys he keys for the rows to delete.
+   * @returns 
+   */
+  private static getDeleteMutation(table: string, keys: Key[]): spannerClient.spanner.v1.IMutation {
     const keySet: spannerClient.spanner.v1.IKeySet = {
       keys: arrify(keys).map(codec.convertToListValue),
     };
     const mutation: spannerClient.spanner.v1.IMutation = {
       delete: {table, keySet},
     };
-
-    this._queuedMutations.push(mutation as spannerClient.spanner.v1.Mutation);
+    return mutation;
   }
 
   /**
@@ -2305,6 +2316,24 @@ export class Transaction extends Dml {
     table: string,
     keyVals: object | object[]
   ): void {
+    this._queuedMutations.push(
+      Transaction.getMutation(method, table, keyVals) as spannerClient.spanner.v1.Mutation);
+  }
+
+  /**
+   * Formats the mutations.
+   * 
+   * @private
+   * 
+   * @param {string} method CRUD method (insert, update, etc.).
+   * @param {string} table Table to perform mutations in.
+   * @param {object} rows Hash of key value pairs.
+   */
+  private static getMutation(
+    method: string,
+    table: string,
+    keyVals: object | object[]
+  ): spannerClient.spanner.v1.IMutation {
     const rows: object[] = arrify(keyVals);
     const columns = Transaction.getUniqueKeys(rows);
 
@@ -2328,10 +2357,8 @@ export class Transaction extends Dml {
     const mutation: spannerClient.spanner.v1.IMutation = {
       [method]: {table, columns, values},
     };
-
-    this._queuedMutations.push(mutation as spannerClient.spanner.v1.Mutation);
+    return mutation;
   }
-
   /**
    * Takes a list of rows and returns all unique column names.
    *
