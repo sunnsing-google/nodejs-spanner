@@ -2016,7 +2016,11 @@ export class Transaction extends Dml {
    */
   deleteRows(table: string, keys: Key[]): void {
     this._queuedMutations.push(
-      Transaction.getDeleteMutation(table, keys) as spannerClient.spanner.v1.Mutation);
+      Transaction.getDeleteMutation(
+        table,
+        keys
+      ) as spannerClient.spanner.v1.Mutation
+    );
   }
 
   /**
@@ -2024,9 +2028,12 @@ export class Transaction extends Dml {
    * @private
    * @param table The name of the table.
    * @param keys he keys for the rows to delete.
-   * @returns 
+   * @returns
    */
-  private static getDeleteMutation(table: string, keys: Key[]): spannerClient.spanner.v1.IMutation {
+  private static getDeleteMutation(
+    table: string,
+    keys: Key[]
+  ): spannerClient.spanner.v1.IMutation {
     const keySet: spannerClient.spanner.v1.IKeySet = {
       keys: arrify(keys).map(codec.convertToListValue),
     };
@@ -2317,14 +2324,19 @@ export class Transaction extends Dml {
     keyVals: object | object[]
   ): void {
     this._queuedMutations.push(
-      Transaction.getMutation(method, table, keyVals) as spannerClient.spanner.v1.Mutation);
+      Transaction.getMutation(
+        method,
+        table,
+        keyVals
+      ) as spannerClient.spanner.v1.Mutation
+    );
   }
 
   /**
    * Formats the mutations.
-   * 
+   *
    * @private
-   * 
+   *
    * @param {string} method CRUD method (insert, update, etc.).
    * @param {string} table Table to perform mutations in.
    * @param {object} rows Hash of key value pairs.

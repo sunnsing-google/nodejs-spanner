@@ -227,15 +227,12 @@ export interface GetIamPolicyOptions {
 }
 
 export interface BatchWriteOptions {
- requestOptions?: Pick<IRequestOptions, 'transactionTag'>;
- gaxOptions?: CallOptions;
+  requestOptions?: Pick<IRequestOptions, 'transactionTag'>;
+  gaxOptions?: CallOptions;
 }
 
 export interface BatchWriteCallback {
-  (
-    err: null | grpc.ServiceError,
-    stream: null | Duplex
-  ): void;
+  (err: null | grpc.ServiceError, stream: null | Duplex): void;
 }
 
 export type CreateSessionCallback = ResourceCallback<
@@ -2866,7 +2863,10 @@ class Database extends common.GrpcServiceObject {
     const mutation: spannerClient.spanner.v1.IMutation = {
       [method]: {table, columns, values},
     };
-    const mutations: google.spanner.v1.BatchWriteRequest.IMutationGroup = Object.assign([mutation] as google.spanner.v1.BatchWriteRequest.IMutationGroup);
+    const mutations: google.spanner.v1.BatchWriteRequest.IMutationGroup =
+      Object.assign([
+        mutation,
+      ] as google.spanner.v1.BatchWriteRequest.IMutationGroup);
     return [mutations] as google.spanner.v1.BatchWriteRequest.IMutationGroup[];
   }
 
@@ -2877,9 +2877,8 @@ class Database extends common.GrpcServiceObject {
   batchWrite(
     mutationGroups: google.spanner.v1.BatchWriteRequest.IMutationGroup[],
     options: BatchWriteOptions,
-    callback: BatchWriteCallback,
-    ): void {
-
+    callback: BatchWriteCallback
+  ): void {
     this.pool_.getSession((err, session) => {
       if (err) {
         // TODO(sunnsing): retry for session not found errors
@@ -2888,32 +2887,36 @@ class Database extends common.GrpcServiceObject {
       }
 
       const gaxOpts = extend(true, {}, options.gaxOptions);
-      var request = Object.assign({} as spannerClient.spanner.v1.BatchWriteRequest);
+      const request = Object.assign(
+        {} as spannerClient.spanner.v1.BatchWriteRequest
+      );
       const reqOpts: spannerClient.spanner.v1.BatchWriteRequest = Object.assign(
         request,
         {
           session: session?.formattedName_!,
           mutationGroups: this._getCannedMutationGroups(),
-          requestOptions: options.requestOptions
+          requestOptions: options.requestOptions,
         }
       );
       // TODO(sunnsing): release session
-      callback(null, this.requestStream({
-        client: 'SpannerClient',
-        method: 'batchWrite',
-        reqOpts,
-        gaxOpts,
-        headers: this.resourceHeader_,
-      }));
+      callback(
+        null,
+        this.requestStream({
+          client: 'SpannerClient',
+          method: 'batchWrite',
+          reqOpts,
+          gaxOpts,
+          headers: this.resourceHeader_,
+        })
+      );
     });
   }
 
   // streaming version
   batchWriteStream(
     mutationGroups: google.spanner.v1.BatchWriteRequest.IMutationGroup[],
-    options: BatchWriteOptions,
+    options: BatchWriteOptions
   ): Duplex {
-
     const proxyStream: Transform = through.obj();
 
     this.pool_.getSession((err, session) => {
@@ -2922,16 +2925,18 @@ class Database extends common.GrpcServiceObject {
         return;
       }
       const gaxOpts = extend(true, {}, options.gaxOptions);
-      var request = Object.assign({} as spannerClient.spanner.v1.BatchWriteRequest);
+      const request = Object.assign(
+        {} as spannerClient.spanner.v1.BatchWriteRequest
+      );
       const reqOpts: spannerClient.spanner.v1.BatchWriteRequest = Object.assign(
         request,
         {
           session: session?.formattedName_!,
           mutationGroups: this._getCannedMutationGroups(),
-          requestOptions: options.requestOptions
+          requestOptions: options.requestOptions,
         }
       );
-      let dataStream = this.requestStream({
+      const dataStream = this.requestStream({
         client: 'SpannerClient',
         method: 'batchWrite',
         reqOpts,
@@ -2940,9 +2945,8 @@ class Database extends common.GrpcServiceObject {
       });
       dataStream
         .once('error', err => {
-            proxyStream.destroy(err);
-          }
-        )
+          proxyStream.destroy(err);
+        })
         .pipe(proxyStream);
     });
 
