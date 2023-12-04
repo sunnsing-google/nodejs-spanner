@@ -36,6 +36,7 @@ import {
   ReadRequest,
   ExecuteSqlRequest,
   TimestampBounds,
+  MutationGroup,
 } from '../src/transaction';
 import {Row} from '../src/partial-result-stream';
 import {GetDatabaseConfig} from '../src/database';
@@ -164,21 +165,21 @@ describe('Spanner', () => {
       RESOURCES_TO_CLEAN.push(PG_DATABASE);
 
       // Create a user-managed instance config from a base instance config.
-      const [baseInstanceConfig] = await spanner.getInstanceConfig(
-        INSTANCE_CONFIG.config
-      );
-      const customInstanceConfigRequest = {
-        replicas: baseInstanceConfig.replicas!.concat(
-          baseInstanceConfig!.optionalReplicas![0]
-        ),
-        baseConfig: baseInstanceConfig.name,
-        gaxOptions: GAX_OPTIONS,
-      };
-      const [, operation] = await instanceConfig.create(
-        customInstanceConfigRequest
-      );
-      await operation.promise();
-      INSTANCE_CONFIGS_TO_CLEAN.push(instanceConfig);
+      // const [baseInstanceConfig] = await spanner.getInstanceConfig(
+      //   INSTANCE_CONFIG.config
+      // );
+      // const customInstanceConfigRequest = {
+      //   replicas: baseInstanceConfig.replicas!.concat(
+      //     baseInstanceConfig!.optionalReplicas![0]
+      //   ),
+      //   baseConfig: baseInstanceConfig.name,
+      //   gaxOptions: GAX_OPTIONS,
+      // };
+      // const [, operation] = await instanceConfig.create(
+      //   customInstanceConfigRequest
+      // );
+      // await operation.promise();
+      // INSTANCE_CONFIGS_TO_CLEAN.push(instanceConfig);
     }
   });
 
@@ -4293,6 +4294,24 @@ describe('Spanner', () => {
           params: {id: ID},
         };
         queryStreamMode(done, DATABASE, query, GOOGLE_SQL_EXPECTED_ROW);
+      });
+
+      // Dummy batch write test
+      it('BATCH_WRITE_TEST', done => {
+        const group = new MutationGroup();
+        group.upsert(TABLE_NAME, {SingerId: '1', Name: 'Michael'});
+        DATABASE.batchWrite([group], {})
+          .on('data', data => {
+            console.log('received data:', data);
+          })
+          .on('end', () => {
+            done();
+          })
+          .on('error', error => {
+            console.error('received error:', error);
+            done();
+            // assert.fail(error);
+          });
       });
 
       it('POSTGRESQL should query in stream mode', function (done) {

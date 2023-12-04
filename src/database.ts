@@ -60,7 +60,9 @@ import {
 } from './session-pool';
 import {CreateTableCallback, CreateTableResponse, Table} from './table';
 import {
+  BatchWriteOptions,
   ExecuteSqlRequest,
+  MutationGroup,
   RunCallback,
   RunResponse,
   RunUpdateCallback,
@@ -3095,6 +3097,68 @@ class Database extends common.GrpcServiceObject {
       }
     }
   }
+
+  /**
+   * BatchWrite
+   */
+  batchWrite(
+    mutationGroups: MutationGroup[],
+    options: BatchWriteOptions
+  ): NodeJS.ReadableStream {
+    const proxyStream: Transform = through.obj();
+
+    this.pool_.getSession((err, session) => {
+      if (err) {
+        proxyStream.destroy(err);
+        return;
+      }
+      const gaxOpts = extend(true, {}, options.gaxOptions);
+      const reqOpts = Object.assign(
+        {} as spannerClient.spanner.v1.BatchWriteRequest,
+        {
+          session: session!.formattedName_!,
+          mutationGroups: mutationGroups.map(mg => mg.proto()),
+          requestOptions: options.requestOptions,
+        }
+      );
+      let dataReceived = false;
+      let dataStream = this.requestStream({
+        client: 'SpannerClient',
+        method: 'batchWrite',
+        reqOpts,
+        gaxOpts,
+        headers: this.resourceHeader_,
+      });
+      dataStream
+        .once('data', () => (dataReceived = true))
+        .once('error', err => {
+          if (
+            !dataReceived &&
+            isSessionNotFoundError(err as grpc.ServiceError)
+          ) {
+            // If it is a 'Session not found' error and we have not yet received
+            // any data, we can safely retry the write on a new session.
+            // Register the error on the session so the pool can discard it.
+            if (session) {
+              session.lastError = err as grpc.ServiceError;
+            }
+            // Remove the current data stream from the end user stream.
+            dataStream.unpipe(proxyStream);
+            dataStream.end();
+            // Create a new stream and add it to the end user stream.
+            dataStream = this.batchWrite(mutationGroups, options);
+            dataStream.pipe(proxyStream);
+          } else {
+            proxyStream.destroy(err);
+          }
+        })
+        .once('end', () => this.pool_.release(session!))
+        .pipe(proxyStream);
+    });
+
+    return proxyStream as NodeJS.ReadableStream;
+  }
+
   /**
    * Create a Session object.
    *
@@ -3400,6 +3464,7 @@ class Database extends common.GrpcServiceObject {
 promisifyAll(Database, {
   exclude: [
     'batchTransaction',
+    'batchWrite',
     'getRestoreInfo',
     'getState',
     'getOperations',
@@ -3420,6 +3485,7 @@ callbackifyAll(Database, {
     'create',
     'batchCreateSessions',
     'batchTransaction',
+    'batchWrite',
     'close',
     'createBatchTransaction',
     'createSession',

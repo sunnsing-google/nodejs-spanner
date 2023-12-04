@@ -72,6 +72,11 @@ export interface CommitOptions {
   gaxOptions?: CallOptions;
 }
 
+export interface BatchWriteOptions {
+  requestOptions?: Pick<IRequestOptions, 'priority' | 'transactionTag'>;
+  gaxOptions?: CallOptions;
+}
+
 export interface Statement {
   sql: string;
   params?: {[param: string]: Value};
@@ -2015,14 +2020,7 @@ export class Transaction extends Dml {
    * ```
    */
   deleteRows(table: string, keys: Key[]): void {
-    const keySet: spannerClient.spanner.v1.IKeySet = {
-      keys: arrify(keys).map(codec.convertToListValue),
-    };
-    const mutation: spannerClient.spanner.v1.IMutation = {
-      delete: {table, keySet},
-    };
-
-    this._queuedMutations.push(mutation as spannerClient.spanner.v1.Mutation);
+    this._queuedMutations.push(buildDeleteMutation(table, keys));
   }
 
   /**
@@ -2305,31 +2303,7 @@ export class Transaction extends Dml {
     table: string,
     keyVals: object | object[]
   ): void {
-    const rows: object[] = arrify(keyVals);
-    const columns = Transaction.getUniqueKeys(rows);
-
-    const values = rows.map((row, index) => {
-      const keys = Object.keys(row);
-      const missingColumns = columns.filter(column => !keys.includes(column));
-
-      if (missingColumns.length > 0) {
-        throw new GoogleError(
-          [
-            `Row at index ${index} does not contain the correct number of columns.`,
-            `Missing columns: ${JSON.stringify(missingColumns)}`,
-          ].join('\n\n')
-        );
-      }
-
-      const values = columns.map(column => row[column]);
-      return codec.convertToListValue(values);
-    });
-
-    const mutation: spannerClient.spanner.v1.IMutation = {
-      [method]: {table, columns, values},
-    };
-
-    this._queuedMutations.push(mutation as spannerClient.spanner.v1.Mutation);
+    this._queuedMutations.push(buildMutation(method, table, keyVals));
   }
 
   /**
@@ -2377,6 +2351,95 @@ export class Transaction extends Dml {
 promisifyAll(Transaction, {
   exclude: ['deleteRows', 'insert', 'replace', 'update', 'upsert'],
 });
+
+/**
+ * Formats the mutations.
+ *
+ * @param {string} method CRUD method (insert, update, etc.).
+ * @param {string} table Table to perform mutations in.
+ * @param {object} rows Hash of key value pairs.
+ */
+function buildMutation(
+  method: string,
+  table: string,
+  keyVals: object | object[]
+): spannerClient.spanner.v1.Mutation {
+  const rows: object[] = arrify(keyVals);
+  const columns = Transaction.getUniqueKeys(rows);
+
+  const values = rows.map((row, index) => {
+    const keys = Object.keys(row);
+    const missingColumns = columns.filter(column => !keys.includes(column));
+
+    if (missingColumns.length > 0) {
+      throw new GoogleError(
+        [
+          `Row at index ${index} does not contain the correct number of columns.`,
+          `Missing columns: ${JSON.stringify(missingColumns)}`,
+        ].join('\n\n')
+      );
+    }
+
+    const values = columns.map(column => row[column]);
+    return codec.convertToListValue(values);
+  });
+
+  const mutation: spannerClient.spanner.v1.IMutation = {
+    [method]: {table, columns, values},
+  };
+  return mutation as spannerClient.spanner.v1.Mutation;
+}
+
+/**
+ * Formats a delete mutation.
+ * @param {string} table The name of the table.
+ * @param {array} keys The keys for the rows to delete.
+ */
+function buildDeleteMutation(
+  table: string,
+  keys: Key[]
+): spannerClient.spanner.v1.Mutation {
+  const keySet: spannerClient.spanner.v1.IKeySet = {
+    keys: arrify(keys).map(codec.convertToListValue),
+  };
+  const mutation: spannerClient.spanner.v1.IMutation = {
+    delete: {table, keySet},
+  };
+  return mutation as spannerClient.spanner.v1.Mutation;
+}
+
+export class MutationGroup {
+  private _proto: spannerClient.spanner.v1.BatchWriteRequest.MutationGroup;
+
+  constructor() {
+    this._proto =
+      new spannerClient.spanner.v1.BatchWriteRequest.MutationGroup();
+  }
+
+  insert(table: string, rows: object | object[]): void {
+    this._proto.mutations.push(buildMutation('insert', table, rows));
+  }
+
+  update(table: string, rows: object | object[]): void {
+    this._proto.mutations.push(buildMutation('update', table, rows));
+  }
+
+  upsert(table: string, rows: object | object[]): void {
+    this._proto.mutations.push(buildMutation('insertOrUpdate', table, rows));
+  }
+
+  replace(table: string, rows: object | object[]): void {
+    this._proto.mutations.push(buildMutation('replace', table, rows));
+  }
+
+  deleteRows(table: string, keys: Key[]): void {
+    this._proto.mutations.push(buildDeleteMutation(table, keys));
+  }
+
+  proto(): spannerClient.spanner.v1.BatchWriteRequest.IMutationGroup {
+    return this._proto;
+  }
+}
 
 /**
  * This type of transaction is used to execute a single Partitioned DML
